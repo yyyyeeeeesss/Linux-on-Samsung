@@ -5,7 +5,8 @@
 #  Features:
 #  - Choice of Desktop Environment (XFCE, LXQt, MATE, KDE)
 #  - Samsung Adreno GPU acceleration (Turnip/Zink)
-#  - Metasploit Framework pre-installed
+#  - Remote access: SSH + VNC (connect from Mac/PC)
+#  - Zsh shell with Oh My Zsh
 #  - Python & Web Dev environment
 #  - Windows App Support (Wine/Hangover)
 #  - One-click desktop launch
@@ -16,7 +17,7 @@
 #######################################################
 
 # ============== CONFIGURATION ==============
-TOTAL_STEPS=13
+TOTAL_STEPS=14
 CURRENT_STEP=0
 DE_CHOICE="1"
 DE_NAME="XFCE4"
@@ -265,6 +266,7 @@ step_apps() {
     echo ""
     
     install_pkg "firefox" "Firefox Browser"
+    install_pkg "chromium" "Chromium Browser"
     install_pkg "code-oss" "VS Code Editor"
     install_pkg "vlc" "VLC Media Player"
     install_pkg "git" "Git Version Control"
@@ -303,19 +305,51 @@ if __name__ == "__main__":
 PYEOF
     echo -e "  ${GREEN}✓${NC} Python Flask demo created in ~/demo_python"
 }
-# ============== STEP 9: INSTALL METASPLOIT ==============
-step_metasploit() {
+# ============== STEP 9: INSTALL REMOTE ACCESS (SSH + VNC) ==============
+step_remote_access() {
     update_progress
-    echo -e "${PURPLE}[Step ${CURRENT_STEP}/${TOTAL_STEPS}] Installing Metasploit Framework...${NC}"
+    echo -e "${PURPLE}[Step ${CURRENT_STEP}/${TOTAL_STEPS}] Installing Remote Access (SSH + VNC)...${NC}"
     echo ""
     
-    echo -e "  ${YELLOW}⏳${NC} This may take a while (large download)..."
+    install_pkg "openssh" "OpenSSH Server"
+    install_pkg "x11vnc" "x11vnc (VNC Server)"
     
-    install_pkg "metasploit" "Metasploit Framework"
+    # Generate SSH host keys if not present
+    if [ ! -f ~/.ssh/id_rsa ]; then
+        (ssh-keygen -A > /dev/null 2>&1) &
+        spinner $! "Generating SSH host keys..."
+    fi
     
-    # Initialize Metasploit database
-    (msfdb init > /dev/null 2>&1) &
-    spinner $! "Initializing Metasploit database..."
+    # Set default SSH password prompt
+    echo -e "  ${YELLOW}💡${NC} To set SSH password, run: ${WHITE}passwd${NC}"
+    echo -e "  ${YELLOW}💡${NC} SSH will listen on port ${WHITE}8022${NC} by default"
+    echo -e "  ${YELLOW}💡${NC} Connect from Mac: ${WHITE}ssh user@<phone-ip> -p 8022${NC}"
+    echo -e "  ${GREEN}✓${NC} Remote access configured"
+}
+
+# ============== STEP 10: INSTALL ZSH ==============
+step_zsh() {
+    update_progress
+    echo -e "${PURPLE}[Step ${CURRENT_STEP}/${TOTAL_STEPS}] Installing Zsh Shell...${NC}"
+    echo ""
+    
+    install_pkg "zsh" "Zsh Shell"
+    
+    # Install Oh My Zsh
+    if [ ! -d "$HOME/.oh-my-zsh" ]; then
+        (git clone --depth=1 https://github.com/ohmyzsh/ohmyzsh.git "$HOME/.oh-my-zsh" > /dev/null 2>&1) &
+        spinner $! "Installing Oh My Zsh..."
+        
+        # Create default .zshrc
+        cp "$HOME/.oh-my-zsh/templates/zshrc.zsh-template" "$HOME/.zshrc"
+        # Source GPU config in zshrc
+        echo 'source ~/.config/hacklab-gpu.sh 2>/dev/null' >> "$HOME/.zshrc"
+    fi
+    
+    # Set zsh as default shell
+    chsh -s zsh > /dev/null 2>&1
+    
+    echo -e "  ${GREEN}✓${NC} Zsh with Oh My Zsh installed and set as default shell"
 }
 # ============== STEP 12: INSTALL WINE (WINDOWS APPS) ==============
 step_wine() {
@@ -518,9 +552,10 @@ while true; do
     echo "║   🔧 Samsung Mobile HackLab - Quick Tools     ║"
     echo "╠═══════════════════════════════════════════════╣"
     echo "║                                               ║"
-    echo "║   1) 💀 Metasploit  - Exploit Framework       ║"
-    echo "║   2) 🖥️  Start Desktop                        ║"
-    echo "║   3) 🎮 Check GPU Status                      ║"
+    echo "║   1) 🌐 Start VNC Server (remote desktop)    ║"
+    echo "║   2) 🔑 Start SSH Server                      ║"
+    echo "║   3) 🖥️  Start Desktop                        ║"
+    echo "║   4) 🎮 Check GPU Status                      ║"
     echo "║   0) ❌ Exit                                  ║"
     echo "║                                               ║"
     echo "╚═══════════════════════════════════════════════╝"
@@ -528,13 +563,23 @@ while true; do
     read -p "  Select option: " choice
     
     case $choice in
-        1) 
-            msfconsole
+        1)
+            echo ""
+            echo "  Starting VNC server on port 5900..."
+            echo "  Connect from Mac: open vnc://\$(hostname -I | awk '{print \$1}'):5900"
+            x11vnc -display :0 -forever -nopw -listen 0.0.0.0 -rfbport 5900
             ;;
-        2) 
+        2)
+            echo ""
+            echo "  Starting SSH server on port 8022..."
+            sshd
+            echo "  Connect from Mac: ssh \$(whoami)@\$(hostname -I | awk '{print \$1}') -p 8022"
+            read -p "  Press Enter to continue..."
+            ;;
+        3) 
             bash ~/start-hacklab.sh
             ;;
-        3)
+        4)
             echo ""
             echo "  === GPU Information ==="
             glxinfo 2>/dev/null | grep -i "renderer\|vendor\|version" || echo "  glxinfo not available (install mesa-utils)"
@@ -604,6 +649,17 @@ Type=Application
 Categories=Network;WebBrowser;
 EOF
     
+    # Chromium
+    cat > ~/Desktop/Chromium.desktop << 'EOF'
+[Desktop Entry]
+Name=Chromium
+Comment=Web Browser
+Exec=chromium --no-sandbox
+Icon=chromium
+Type=Application
+Categories=Network;WebBrowser;
+EOF
+    
     # VS Code
     cat > ~/Desktop/VSCode.desktop << 'EOF'
 [Desktop Entry]
@@ -635,17 +691,6 @@ Exec=${TERM_CMD}
 Icon=utilities-terminal
 Type=Application
 Categories=System;TerminalEmulator;
-EOF
-    
-    # Metasploit
-    cat > ~/Desktop/Metasploit.desktop << EOF
-[Desktop Entry]
-Name=Metasploit
-Comment=Exploitation Framework
-Exec=${TERM_CMD} ${TERM_EXEC_FLAG} msfconsole
-Icon=utilities-terminal
-Type=Application
-Categories=Security;
 EOF
     
     # Windows Explorer via Wine
@@ -723,12 +768,14 @@ COMPLETE
     echo ""
     echo -e "${CYAN}📦 INSTALLED TOOLS:${NC}"
     echo ""
-    echo -e "  ${WHITE}🔒 Security:${NC}"
-    echo -e "     • Metasploit Framework"
+    echo -e "  ${WHITE}🌐 Remote Access:${NC}"
+    echo -e "     • SSH Server (port 8022)"
+    echo -e "     • VNC Server (x11vnc)"
     echo ""
     echo -e "  ${WHITE}💻 Development & Apps:${NC}"
     echo -e "     • Python 3 + Flask"
-    echo -e "     • VS Code, Git, Firefox, VLC"
+    echo -e "     • VS Code, Git, Firefox, Chromium, VLC"
+    echo -e "     • Zsh + Oh My Zsh"
     echo ""
     echo -e "  ${WHITE}🖥️  Desktop & System:${NC}"
     echo -e "     • ${DE_NAME} Desktop Environment"
@@ -765,11 +812,12 @@ main() {
     step_audio         # Step 6
     step_apps          # Step 7
     step_python        # Step 8
-    step_metasploit    # Step 9
-    step_wine          # Step 10
-    step_launchers     # Step 11
-    step_shortcuts     # Step 12
-    step_finalize      # Step 13
+    step_remote_access # Step 9
+    step_zsh           # Step 10
+    step_wine          # Step 11
+    step_launchers     # Step 12
+    step_shortcuts     # Step 13
+    step_finalize      # Step 14
     
     show_completion
 }
