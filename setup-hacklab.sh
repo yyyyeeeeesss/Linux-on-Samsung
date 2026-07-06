@@ -136,43 +136,12 @@ detect_samsung() {
     echo ""
     sleep 1
 }
-# ============== DESKTOP ENVIRONMENT SELECTION ==============
+# ============== DESKTOP ENVIRONMENT (AUTO-SELECT XFCE4) ==============
 choose_desktop() {
-    echo -e "${CYAN}📺 Choose your Desktop Environment:${NC}"
+    DE_CHOICE="1"
+    DE_NAME="XFCE4"
+    echo -e "  ${GREEN}✓ Auto-selected: ${WHITE}${DE_NAME}${NC} (default)"
     echo ""
-    echo -e "  ${WHITE}1) XFCE4${NC}       ${GREEN}(Recommended)${NC} — Fast, customizable, macOS-style dock"
-    echo -e "  ${WHITE}2) LXQt${NC}        — Ultra lightweight, best for older Galaxy devices"
-    echo -e "  ${WHITE}3) MATE${NC}        — Classic Linux UI, moderately heavy"
-    echo -e "  ${WHITE}4) KDE Plasma${NC}  — Modern Windows 11 style ${YELLOW}(heavy — needs strong GPU/RAM)${NC}"
-    echo ""
-    
-    if [ "$GPU_DRIVER" == "swrast" ]; then
-        echo -e "  ${YELLOW}💡 TIP: Your Exynos GPU works best with XFCE or LXQt.${NC}"
-        echo ""
-    fi
-    
-    while true; do
-        read -p "  Enter number (1-4) [default: 1]: " DE_INPUT < /dev/tty
-        DE_INPUT=${DE_INPUT:-1}
-        if [[ "$DE_INPUT" =~ ^[1-4]$ ]]; then
-            DE_CHOICE="$DE_INPUT"
-            break
-        else
-            echo "  Invalid input. Please enter 1, 2, 3, or 4."
-        fi
-    done
-    
-    case $DE_CHOICE in
-        1) DE_NAME="XFCE4";;
-        2) DE_NAME="LXQt";;
-        3) DE_NAME="MATE";;
-        4) DE_NAME="KDE Plasma";;
-    esac
-    
-    echo ""
-    echo -e "  ${GREEN}✓ Selected: ${WHITE}${DE_NAME}${NC}"
-    echo ""
-    sleep 1
 }
 # ============== STEP 1: UPDATE SYSTEM ==============
 step_update() {
@@ -440,6 +409,9 @@ PLANKEOF
     cat > ~/start-hacklab.sh << 'LAUNCHEREOF'
 #!/data/data/com.termux/files/usr/bin/bash
 
+# Prevent Android from killing Termux
+termux-wake-lock 2>/dev/null
+
 export XDG_DATA_DIRS=/data/data/com.termux/files/usr/share:${XDG_DATA_DIRS}
 export XDG_CONFIG_DIRS=/data/data/com.termux/files/usr/etc/xdg:${XDG_CONFIG_DIRS}
 
@@ -450,25 +422,25 @@ declare -A KILL_CMDS
 
 if command -v startxfce4 >/dev/null 2>&1; then
     DESKTOPS+=("XFCE4")
-    EXEC_CMDS["XFCE4"]="exec startxfce4"
+    EXEC_CMDS["XFCE4"]="startxfce4"
     KILL_CMDS["XFCE4"]="pkill -9 xfce4-session; pkill -9 plank"
 fi
 
 if command -v startlxqt >/dev/null 2>&1; then
     DESKTOPS+=("LXQt")
-    EXEC_CMDS["LXQt"]="exec startlxqt"
+    EXEC_CMDS["LXQt"]="startlxqt"
     KILL_CMDS["LXQt"]="pkill -9 lxqt-session"
 fi
 
 if command -v mate-session >/dev/null 2>&1; then
     DESKTOPS+=("MATE")
-    EXEC_CMDS["MATE"]="exec mate-session"
+    EXEC_CMDS["MATE"]="mate-session"
     KILL_CMDS["MATE"]="pkill -9 mate-session; pkill -9 plank"
 fi
 
 if command -v startplasma-x11 >/dev/null 2>&1; then
     DESKTOPS+=("KDE Plasma")
-    EXEC_CMDS["KDE Plasma"]="(sleep 5 && pkill -9 plasmashell && plasmashell) > /dev/null 2>&1 & exec startplasma-x11"
+    EXEC_CMDS["KDE Plasma"]="(sleep 5 && pkill -9 plasmashell && plasmashell) > /dev/null 2>&1 & startplasma-x11"
     KILL_CMDS["KDE Plasma"]="pkill -9 startplasma-x11; pkill -9 kwin_x11; pkill -9 plasmashell"
 fi
 
@@ -477,28 +449,8 @@ if [ ${#DESKTOPS[@]} -eq 0 ]; then
     exit 1
 fi
 
-SELECTED_DE=""
-
-if [ ${#DESKTOPS[@]} -eq 1 ]; then
-    SELECTED_DE="${DESKTOPS[0]}"
-else
-    echo "📺 Multiple Desktop Environments detected!"
-    echo "   Which desktop do you want to start today?"
-    echo ""
-    for i in "${!DESKTOPS[@]}"; do
-        echo "  $((i+1))) ${DESKTOPS[$i]}"
-    done
-    echo ""
-    while true; do
-        read -p "Enter number (1-${#DESKTOPS[@]}): " DE_INPUT
-        if [[ "$DE_INPUT" =~ ^[0-9]+$ ]] && [ "$DE_INPUT" -ge 1 ] && [ "$DE_INPUT" -le "${#DESKTOPS[@]}" ]; then
-            SELECTED_DE="${DESKTOPS[$((DE_INPUT-1))]}"
-            break
-        else
-            echo "Invalid input."
-        fi
-    done
-fi
+# Auto-select first available DE (no prompt)
+SELECTED_DE="${DESKTOPS[0]}"
 
 echo ""
 echo "🚀 Starting Samsung Mobile HackLab (${SELECTED_DE})..."
@@ -529,11 +481,29 @@ termux-x11 :0 -ac &
 sleep 3
 export DISPLAY=:0
 
+# === START SSH ===
+echo "🔑 Starting SSH server (port 8022)..."
+pkill sshd 2>/dev/null
+sshd
+
+# === START VNC ===
+echo "🌐 Starting VNC server (port 5900)..."
+pkill x11vnc 2>/dev/null
+x11vnc -display :0 -forever -nopw -listen 0.0.0.0 -rfbport 5900 -bg > /dev/null 2>&1
+
+# Get device IP
+DEVICE_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
+[ -z "$DEVICE_IP" ] && DEVICE_IP=$(ifconfig 2>/dev/null | grep "inet " | grep -v 127.0.0.1 | awk '{print $2}' | head -1)
+
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "  📱 Open the Termux-X11 app to see desktop!"
 echo "  🔊 Audio is enabled!"
 echo "  🎮 GPU acceleration is active!"
+echo ""
+echo "  🌐 REMOTE ACCESS:"
+echo "  SSH: ssh ${DEVICE_IP} -p 8022"
+echo "  VNC: vnc://${DEVICE_IP}:5900"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
@@ -617,7 +587,10 @@ pkill -9 startplasma-x11 2>/dev/null
 pkill -9 kwin_x11 2>/dev/null
 pkill -9 plasmashell 2>/dev/null
 pkill -9 -f "dbus" 2>/dev/null
-echo "✓ Desktop stopped."
+pkill x11vnc 2>/dev/null
+pkill sshd 2>/dev/null
+termux-wake-unlock 2>/dev/null
+echo "✓ Desktop, VNC, and SSH stopped."
 STOPEOF
     chmod +x ~/stop-hacklab.sh
     echo -e "  ${GREEN}✓${NC} Created ~/stop-hacklab.sh"
@@ -793,13 +766,11 @@ COMPLETE
 main() {
     show_banner
     
-    echo -e "${WHITE}  This script will install a complete Linux hacking desktop${NC}"
-    echo -e "${WHITE}  with GPU acceleration on your Samsung Galaxy phone.${NC}"
+    echo -e "${WHITE}  Installing complete Linux desktop with GPU acceleration${NC}"
+    echo -e "${WHITE}  and remote access on your Samsung Galaxy phone.${NC}"
     echo ""
     echo -e "${GRAY}  Estimated time: 20-40 minutes (depends on internet speed)${NC}"
     echo ""
-    echo -e "${YELLOW}  Press Enter to start installation, or Ctrl+C to cancel...${NC}"
-    read < /dev/tty
     
     detect_samsung
     choose_desktop

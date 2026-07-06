@@ -22,6 +22,8 @@ Transform your **Samsung Galaxy** smartphone or tablet into a fully functional, 
 
 ## ⚙️ Installation
 
+Fully automated — no prompts, no questions. Installs XFCE4 desktop with all tools and remote access.
+
 ### Method 1: One-Click Install (Recommended)
 
 ```bash
@@ -41,35 +43,37 @@ chmod +x setup-hacklab.sh
 
 ## 🖥️ Usage
 
-After installation, the launcher scripts are in your home directory.
+After installation, just run one command — everything starts automatically (desktop, SSH, VNC).
 
-### Start the Desktop
+### Start Everything
 
-1. Keep the **Termux-X11** app open in the background.
-2. Run:
-   ```bash
-   ./start-hacklab.sh
-   ```
-   If you installed multiple DEs, you'll be prompted to choose which one to boot.
+```bash
+./start-hacklab.sh
+```
+
+This automatically:
+- Acquires a wake-lock (prevents Android from killing the process)
+- Launches XFCE4 desktop
+- Starts SSH on port **8022**
+- Starts VNC on port **5900**
+- Prints connection details (IP, ports)
 
 ### Remote Access from Mac
 
 **SSH (terminal)**:
 ```bash
-ssh <user>@<phone-ip> -p 8022
+ssh <phone-ip> -p 8022
 ```
 
 **VNC (graphical desktop)**:
-1. Start the desktop on the phone (`./start-hacklab.sh`).
-2. Start VNC via the quick menu (`./hacktools.sh` → option 1), or manually:
-   ```bash
-   x11vnc -display :0 -forever -nopw -listen 0.0.0.0 -rfbport 5900
-   ```
-3. On your Mac, open **Finder → Go → Connect to Server** (⌘K) and enter:
-   ```
-   vnc://<phone-ip>:5900
-   ```
-   Or use any VNC client (e.g., RealVNC Viewer).
+
+Open **Finder → Go → Connect to Server** (⌘K) and enter:
+```
+vnc://<phone-ip>:5900
+```
+Or use any VNC client (RealVNC Viewer, etc.)
+
+The IP address is shown in Termux when you run `start-hacklab.sh`.
 
 ### Quick Tools Menu
 
@@ -77,7 +81,7 @@ ssh <user>@<phone-ip> -p 8022
 ./hacktools.sh
 ```
 
-### Stop the Desktop
+### Stop Everything
 
 ```bash
 ./stop-hacklab.sh
@@ -96,6 +100,16 @@ Open `http://localhost:5000` in Firefox or Chromium on the device.
 |---------|-----|--------|----------------|
 | Snapdragon (Adreno) | Adreno | Turnip (HW accel) | Any DE, including KDE Plasma |
 | Exynos (Mali) | Mali | Software (llvmpipe) | XFCE4 or LXQt for best performance |
+
+## 🔋 Prevent Android from Killing Termux
+
+Samsung aggressively kills background apps. To keep your Linux desktop running:
+
+1. **Settings → Apps → Termux → Battery → Unrestricted**
+2. **Settings → Apps → Termux-X11 → Battery → Unrestricted**
+3. **Settings → Device Care → Battery → Background usage limits** → remove Termux from sleeping apps
+
+The `start-hacklab.sh` script already acquires a wake-lock automatically, but the Samsung battery settings above are essential.
 
 ## 📦 What Gets Installed
 
