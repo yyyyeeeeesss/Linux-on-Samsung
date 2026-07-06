@@ -25,7 +25,7 @@ Transform your **Samsung Galaxy** smartphone or tablet into a fully functional, 
 ### Method 1: One-Click Install (Recommended)
 
 ```bash
-apt update && apt upgrade -y && apt install curl -y && curl -fsSL https://raw.githubusercontent.com/jarvesusaram99/Linux-on-Samsung/main/setup-hacklab.sh | bash
+apt update && apt upgrade -y && apt install curl -y && curl -fsSL https://raw.githubusercontent.com/yyyyeeeeesss/Linux-on-Samsung/main/setup-hacklab.sh | bash
 ```
 
 ### Method 2: Manual Clone
@@ -33,7 +33,7 @@ apt update && apt upgrade -y && apt install curl -y && curl -fsSL https://raw.gi
 ```bash
 apt update && apt upgrade -y
 apt install git curl -y
-git clone https://github.com/jarvesusaram99/Linux-on-Samsung.git
+git clone https://github.com/yyyyeeeeesss/Linux-on-Samsung.git
 cd Linux-on-Samsung
 chmod +x setup-hacklab.sh
 ./setup-hacklab.sh
