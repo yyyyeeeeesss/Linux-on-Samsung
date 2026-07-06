@@ -289,10 +289,17 @@ step_remote_access() {
         spinner $! "Generating SSH host keys..."
     fi
     
-    # Set default SSH password prompt
-    echo -e "  ${YELLOW}💡${NC} To set SSH password, run: ${WHITE}passwd${NC}"
-    echo -e "  ${YELLOW}💡${NC} SSH will listen on port ${WHITE}8022${NC} by default"
-    echo -e "  ${YELLOW}💡${NC} Connect from Mac: ${WHITE}ssh user@<phone-ip> -p 8022${NC}"
+    # Set default password for SSH and VNC
+    echo -e "  ${YELLOW}⏳${NC} Setting default password..."
+    echo "pass
+pass" | passwd > /dev/null 2>&1
+    
+    # Create VNC password file
+    mkdir -p ~/.vnc
+    x11vnc -storepasswd pass ~/.vnc/passwd > /dev/null 2>&1
+    
+    echo -e "  ${GREEN}✓${NC} Default password set: ${WHITE}pass${NC}"
+    echo -e "  ${YELLOW}💡${NC} Change it later with: ${WHITE}passwd${NC}"
     echo -e "  ${GREEN}✓${NC} Remote access configured"
 }
 
@@ -489,7 +496,7 @@ sshd
 # === START VNC ===
 echo "🌐 Starting VNC server (port 5900)..."
 pkill x11vnc 2>/dev/null
-x11vnc -display :0 -forever -nopw -listen 0.0.0.0 -rfbport 5900 -bg > /dev/null 2>&1
+x11vnc -display :0 -forever -rfbauth ~/.vnc/passwd -listen 0.0.0.0 -rfbport 5900 -bg > /dev/null 2>&1
 
 # Get device IP
 DEVICE_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
@@ -537,7 +544,8 @@ while true; do
             echo ""
             echo "  Starting VNC server on port 5900..."
             echo "  Connect from Mac: open vnc://\$(hostname -I | awk '{print \$1}'):5900"
-            x11vnc -display :0 -forever -nopw -listen 0.0.0.0 -rfbport 5900
+            echo "  Password: pass"
+            x11vnc -display :0 -forever -rfbauth ~/.vnc/passwd -listen 0.0.0.0 -rfbport 5900
             ;;
         2)
             echo ""

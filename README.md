@@ -60,6 +60,8 @@ This automatically:
 
 ### Remote Access from Mac
 
+Default password for both SSH and VNC: **`pass`** (change with `passwd` on the phone).
+
 **SSH (terminal)**:
 ```bash
 ssh <phone-ip> -p 8022
